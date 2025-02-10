@@ -1,6 +1,7 @@
 {
-  "version": 2,
-  "builds": [
-    { "src": "api/convert.js", "use": "@vercel/node" }
-  ]
+  "functions": {
+    "api/convert.js": {
+      "maxDuration": 30
+    }
+  }
 }
