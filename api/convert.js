@@ -6,7 +6,7 @@ import ffmpegStatic from "ffmpeg-static";
 import { tmpdir } from "os";
 
 export default async function handler(req, res) {
-    res.status(200).json({ message: "API is working!" });
+ 
     if (req.method !== "GET") {
         return res.status(405).json({ error: "Only GET requests are allowed" });
     }
