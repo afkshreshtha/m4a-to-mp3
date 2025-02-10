@@ -1,0 +1,6 @@
+[build]
+  command = "npm install"  # Ensures dependencies are installed
+  functions = "netlify/functions"  # Netlify Functions directory
+
+[dev]
+  command = "netlify dev"  # Allows local testing
