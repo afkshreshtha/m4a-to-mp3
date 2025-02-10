@@ -1,9 +1,9 @@
 {
-    "version": 2,
-    "functions": {
-      "api/convert.js": {
-        "runtime": "nodejs18.x"
-      }
-    }
-  }
-  
+  "version": 2,
+  "builds": [
+    { "src": "api/convert.js", "use": "@vercel/node" }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/server.js" }
+  ]
+}
