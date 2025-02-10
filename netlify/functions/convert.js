@@ -1,66 +1,48 @@
-import path from "path";
-import fs from "fs";
+import { createFFmpeg, fetchFile } from "@ffmpeg/ffmpeg";
 import axios from "axios";
-import ffmpeg from "fluent-ffmpeg";
-import ffmpegStatic from "ffmpeg-static";
-import { tmpdir } from "os";
 
 export default async function handler(req, res) {
- 
-    if (req.method !== "GET") {
-        return res.status(405).json({ error: "Only GET requests are allowed" });
+  if (req.method !== "GET") {
+    return res.status(405).json({ error: "Only GET requests are allowed" });
+  }
+
+  const { url } = req.query;
+  if (!url) {
+    return res.status(400).json({ error: "No URL provided" });
+  }
+
+  try {
+    const ffmpeg = createFFmpeg({ log: true });
+
+    if (!ffmpeg.isLoaded()) {
+      await ffmpeg.load();
     }
 
-    const { url } = req.query;
-    if (!url) {
-        return res.status(400).json({ error: "No URL provided" });
-    }
+    // Download M4A file
+    const response = await axios({
+      url,
+      method: "GET",
+      responseType: "arraybuffer", // Get file as buffer
+    });
 
-    try {
-        const inputPath = path.join(tmpdir(), "input.m4a");
-        const outputPath = path.join(tmpdir(), "output.mp3");
+    const inputFile = "input.m4a";
+    const outputFile = "output.mp3";
 
-        // Download the M4A file
-        const response = await axios({
-            url,
-            method: "GET",
-            responseType: "stream",
-        });
+    // Load file into FFmpeg's memory
+    ffmpeg.FS("writeFile", inputFile, new Uint8Array(response.data));
 
-        const writer = fs.createWriteStream(inputPath);
-        response.data.pipe(writer);
+    // Convert M4A to MP3
+    await ffmpeg.run("-i", inputFile, "-b:a", "192k", outputFile);
 
-        await new Promise((resolve, reject) => {
-            writer.on("finish", resolve);
-            writer.on("error", reject);
-        });
+    // Get converted file
+    const data = ffmpeg.FS("readFile", outputFile);
 
-        // Set FFmpeg binary path
-        ffmpeg.setFfmpegPath(ffmpegStatic);
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.setHeader("Content-Disposition", 'attachment; filename="converted.mp3"');
 
-        // Convert M4A to MP3
-        await new Promise((resolve, reject) => {
-            ffmpeg(inputPath)
-                .output(outputPath)
-                .audioCodec("libmp3lame")
-                .on("end", resolve)
-                .on("error", reject)
-                .run();
-        });
-
-        // Send the converted file
-        res.setHeader("Content-Type", "audio/mpeg");
-        res.setHeader("Content-Disposition", 'attachment; filename="converted.mp3"');
-
-        const fileStream = fs.createReadStream(outputPath);
-        fileStream.pipe(res);
-
-        fileStream.on("close", () => {
-            fs.unlinkSync(inputPath);
-            fs.unlinkSync(outputPath);
-        });
-    } catch (error) {
-        console.error(error);
-        return res.status(500).json({ error: "Internal Server Error" });
-    }
+    res.end(Buffer.from(data));
+  } catch (error) {
+    console.error("Error:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
 }
